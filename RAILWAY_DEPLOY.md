@@ -21,9 +21,9 @@ Vào tab **Variables** và set các giá trị sau (tham khảo file `.env.railw
 | `JWT_SECRET` | `...` | Chuỗi ngẫu nhiên bảo mật (dùng `openssl rand -hex 32`) |
 | `FRONTEND_ORIGIN` | `https://eco-product.up.railway.app` | Domain public của app (update sau khi có) |
 
-### Bước 3: Database
-1. Trong Railway, bấm **New** -> **Database** -> **Add PostgreSQL** (hoặc dùng external DB).
-2. Lấy `CONNECTION_URL` của database và gán vào `DATABASE_URL` của service Eco-product.
+### Bước 3: Database & Redis (Khuyên dùng)
+1. **PostgreSQL**: Trong Railway, bấm **New** -> **Database** -> **Add PostgreSQL**. Lấy `CONNECTION_URL` gán vào `DATABASE_URL`.
+2. **Redis**: Bấm **New** -> **Database** -> **Add Redis**. Railway sẽ tự động tạo biến `REDIS_URL`. Hệ thống sẽ tự nhận diện và kích hoạt cache.
 
 ### Bước 4: Kiểm tra Deploy
 Sau khi Railway build xong (khoảng 2-3 phút), kiểm tra:

@@ -1,7 +1,16 @@
-import { Router } from 'express';
+import { cache } from '../lib/cache';
 
-export const healthRouter = Router();
+healthRouter.get('/health', async (_req, res) => {
+    // Check Redis health (non-blocking for overall health unless critical)
+    const redisHealthy = await cache.checkRedisHealth(1000); // 1s timeout for health check
 
-healthRouter.get('/health', (_req, res) => {
-    res.json({ ok: true });
+    const status = {
+        status: 'ok',
+        timestamp: new Date().toISOString(),
+        services: {
+            redis: redisHealthy ? 'healthy' : 'disconnected_or_not_configured',
+        },
+    };
+
+    res.json(status);
 });
