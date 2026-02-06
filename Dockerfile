@@ -39,8 +39,8 @@ RUN npm run build:server
 # -----------------------------------------------------------------------------
 FROM public.ecr.aws/docker/library/node:20-alpine AS runner
 
-# Install dumb-init for proper signal handling
-RUN apk add --no-cache dumb-init
+# Install dumb-init and openssl
+RUN apk add --no-cache dumb-init openssl
 
 WORKDIR /app
 
