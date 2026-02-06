@@ -1,0 +1,7 @@
+{
+  "name": "Eco-Byproduct VN",
+  "description": "Vietnam's premier eco-tech marketplace for agricultural byproducts and environmental community action.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}

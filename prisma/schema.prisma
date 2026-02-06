@@ -1,0 +1,199 @@
+generator client {
+	provider = "prisma-client-js"
+}
+
+datasource db {
+	provider = "cockroachdb"
+	url      = env("DATABASE_URL")
+}
+
+model User {
+	id           String    @id @default(uuid())
+	email        String    @unique
+	name         String
+	passwordHash String
+
+	// TOTP (2FA)
+	totpEnabled Boolean @default(false)
+	totpSecret  String?
+
+	// Security
+	lockedUntil  DateTime?
+	lastLoginAt  DateTime?
+
+	products Product[]
+	posts    Post[]
+	cart     Cart?
+
+	postLikes PostLike[]
+	eventRsvps EventRsvp[]
+	pollutionReports PollutionReport[]
+
+	loginChallenges LoginChallenge[]
+	loginAttempts   LoginAttempt[]
+
+	createdAt DateTime @default(now())
+	updatedAt DateTime @updatedAt
+}
+
+
+
+model LoginChallenge {
+	id        String   @id @default(uuid())
+	userId    String
+	user      User     @relation(fields: [userId], references: [id])
+
+	expiresAt DateTime
+	usedAt    DateTime?
+
+	createdAt DateTime @default(now())
+
+	@@index([userId])
+	@@index([expiresAt])
+}
+
+model Product {
+	id           String   @id @default(uuid())
+	title        String
+	priceVnd     Int
+	unit         String
+	category     String
+	location     String
+	imageUrl     String
+	description  String?
+	co2SavingsKg Int
+
+	sellerId String
+	seller   User     @relation(fields: [sellerId], references: [id])
+
+	cartItems CartItem[]
+
+	createdAt DateTime @default(now())
+	updatedAt DateTime @updatedAt
+
+	@@index([category])
+	@@index([sellerId])
+}
+
+model Cart {
+	id     String @id @default(uuid())
+	userId String @unique
+	user   User   @relation(fields: [userId], references: [id])
+
+	items CartItem[]
+
+	createdAt DateTime @default(now())
+	updatedAt DateTime @updatedAt
+}
+
+model CartItem {
+	id        String  @id @default(uuid())
+	cartId    String
+	productId String
+	quantity  Int     @default(1)
+
+	cart    Cart    @relation(fields: [cartId], references: [id])
+	product Product @relation(fields: [productId], references: [id])
+
+	createdAt DateTime @default(now())
+	updatedAt DateTime @updatedAt
+
+	@@unique([cartId, productId])
+	@@index([productId])
+}
+
+model Post {
+	id       String @id @default(uuid())
+	authorId String
+	author   User   @relation(fields: [authorId], references: [id])
+
+	content  String
+	imageUrl String?
+	tags     String?
+
+	likeCount Int @default(0)
+
+	likes PostLike[]
+
+	createdAt DateTime @default(now())
+	updatedAt DateTime @updatedAt
+
+	@@index([authorId])
+}
+
+model PostLike {
+	id     String @id @default(uuid())
+	postId String
+	userId String
+
+	post Post @relation(fields: [postId], references: [id])
+	user User @relation(fields: [userId], references: [id])
+
+	createdAt DateTime @default(now())
+
+	@@unique([postId, userId])
+	@@index([userId])
+}
+
+model Event {
+	id          String   @id @default(uuid())
+	title       String
+	startAt     DateTime
+	endAt       DateTime?
+	location    String
+	imageUrl    String?
+	description String
+	organizer   String?
+
+	rsvps EventRsvp[]
+
+	createdAt DateTime @default(now())
+	updatedAt DateTime @updatedAt
+}
+
+model EventRsvp {
+	id      String @id @default(uuid())
+	eventId String
+	userId  String
+
+	event Event @relation(fields: [eventId], references: [id])
+	user  User  @relation(fields: [userId], references: [id])
+
+	createdAt DateTime @default(now())
+
+	@@unique([eventId, userId])
+	@@index([userId])
+}
+
+model PollutionReport {
+	id          String        @id @default(uuid())
+	ownerId     String
+	owner       User          @relation(fields: [ownerId], references: [id])
+	lat         Float
+	lng         Float
+	type        String
+	severity    Int
+	description String
+	isAnonymous Boolean       @default(false)
+
+	createdAt DateTime @default(now())
+	updatedAt DateTime @updatedAt
+
+	@@index([type])
+	@@index([ownerId])
+}
+
+model LoginAttempt {
+	id        String   @id @default(uuid())
+	userId    String?
+	user      User?    @relation(fields: [userId], references: [id])
+	email     String
+	ip        String
+	userAgent String?
+	success   Boolean
+	createdAt DateTime @default(now())
+
+	@@index([email])
+	@@index([ip])
+	@@index([createdAt])
+}
