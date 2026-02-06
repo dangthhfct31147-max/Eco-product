@@ -132,6 +132,10 @@ app.use('/api', pollutionRouter);
 // Serve static frontend in production
 if (isProd) {
     const distPath = path.join(__dirname, '../../dist');
+    console.log('Production mode detected.');
+    console.log('Serving static files from:', distPath);
+    console.log('Current directory (__dirname):', __dirname);
+
     app.use(express.static(distPath, {
         maxAge: '1d',
         etag: true,
@@ -144,6 +148,8 @@ if (isProd) {
         }
         res.sendFile('index.html', { root: distPath });
     });
+} else {
+    console.log('Production mode NOT detected. NODE_ENV:', env.NODE_ENV);
 }
 
 app.use(notFound);
