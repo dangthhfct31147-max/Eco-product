@@ -79,4 +79,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
 
 # Start application
 # Note: Adjust path to where your compiled backend index.js is located
-CMD ["dumb-init", "node", "--experimental-specifier-resolution=node", "backend/dist/index.js"]
+CMD ["dumb-init", "node", "backend/dist/index.js"]

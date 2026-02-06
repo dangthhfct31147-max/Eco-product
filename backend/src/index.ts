@@ -1,4 +1,5 @@
 import express from 'express';
+import path from 'path';
 import helmet from 'helmet';
 import cors from 'cors';
 import compression from 'compression';
@@ -130,7 +131,7 @@ app.use('/api', pollutionRouter);
 
 // Serve static frontend in production
 if (isProd) {
-    const distPath = new URL('../../dist', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
+    const distPath = path.join(__dirname, '../../dist');
     app.use(express.static(distPath, {
         maxAge: '1d',
         etag: true,
