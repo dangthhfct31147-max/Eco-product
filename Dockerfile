@@ -58,6 +58,7 @@ RUN npm ci --omit=dev --legacy-peer-deps && \
 # Copy built artifacts from builder
 COPY --from=builder --chown=node:node /app/dist ./dist
 COPY --from=builder --chown=node:node /app/backend/dist ./backend/dist
+COPY --from=builder --chown=node:node /app/backend/package.json ./backend/package.json
 COPY --from=builder --chown=node:node /app/prisma ./prisma
 
 # Generate Prisma Client in production
