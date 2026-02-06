@@ -1,0 +1,64 @@
+# =============================================================================
+# BACKEND CHECKLIST
+# =============================================================================
+# Use for separate Backend Service on Railway
+
+FROM public.ecr.aws/docker/library/node:20-alpine AS builder
+
+WORKDIR /app
+
+# Install build dependencies
+RUN apk add --no-cache python3 make g++
+
+# Copy package files
+COPY package*.json ./
+COPY backend/package*.json ./backend/
+
+# Install dependencies
+RUN npm ci --legacy-peer-deps
+
+# Copy source code
+COPY . .
+
+# Generate Prisma & Build Backend
+RUN npm run prisma:generate
+RUN npm run build:server
+
+# -----------------------------------------------------------------------------
+# RUNNER STAGE
+# -----------------------------------------------------------------------------
+FROM public.ecr.aws/docker/library/node:20-alpine AS runner
+
+# Install system dependencies
+RUN apk add --no-cache dumb-init openssl
+
+WORKDIR /app
+
+# Non-root user
+RUN chown -R node:node /app
+
+# Copy package files
+COPY --chown=node:node package*.json ./
+COPY --chown=node:node backend/package.json ./backend/
+
+# Install prod dependencies
+RUN npm ci --omit=dev --legacy-peer-deps && npm cache clean --force
+
+# Copy artifacts
+COPY --from=builder --chown=node:node /app/backend/dist ./backend/dist
+COPY --from=builder --chown=node:node /app/prisma ./prisma
+
+# Generate Prisma Client (needed in runtime)
+RUN npx prisma generate
+
+ENV PORT=3000
+EXPOSE 3000
+
+USER node
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD node -e "require('http').get('http://localhost:' + (process.env.PORT || 3000) + '/api/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"
+
+# Start Backend
+CMD ["dumb-init", "node", "backend/dist/index.js"]

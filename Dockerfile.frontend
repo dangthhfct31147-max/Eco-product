@@ -1,0 +1,40 @@
+# =============================================================================
+# FRONTEND CHECKLIST
+# =============================================================================
+# Use for separate Frontend Service on Railway
+
+# Build Stage
+FROM public.ecr.aws/docker/library/node:20-alpine AS builder
+
+WORKDIR /app
+
+# Build Args (Vite bake-in)
+ARG VITE_API_URL
+ENV VITE_API_URL=$VITE_API_URL
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies
+RUN npm ci --legacy-peer-deps
+
+# Copy source
+COPY . .
+
+# Build Frontend
+RUN npm run build
+
+# Runner Stage (Nginx)
+FROM public.ecr.aws/docker/library/nginx:alpine
+
+# Railway dynamically sets PORT, so we use a template to inject it
+ENV PORT=80
+
+COPY nginx.frontend.conf /etc/nginx/templates/default.conf.template
+
+# Copy built assets from builder
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]

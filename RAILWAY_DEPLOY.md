@@ -25,20 +25,20 @@ Vào tab **Variables** và set các giá trị sau (tham khảo file `.env.railw
 1. **PostgreSQL**: Trong Railway, bấm **New** -> **Database** -> **Add PostgreSQL**. Lấy `CONNECTION_URL` gán vào `DATABASE_URL`.
 2. **Redis**: Bấm **New** -> **Database** -> **Add Redis**. Railway sẽ tự động tạo biến `REDIS_URL`. Hệ thống sẽ tự nhận diện và kích hoạt cache.
 
-### Bước 4: Kiểm tra Deploy
-Sau khi Railway build xong (khoảng 2-3 phút), kiểm tra:
-- **Build Logs**: Phải có "Done" và không có lỗi đỏ.
-- **Deploy Logs**: "Backend listening on http://localhost:..."
-- **Public URL**: Truy cập thử URL Railway cấp phát.
+### Bước 4.1: Deploy Backend Service
+1. Tạo Service mới: **New** -> **GitHub Repo** -> Chọn `Eco-product`.
+2. Vào **Settings** -> **Build** -> **Dockerfile Path** -> Nhập `Dockerfile.backend`.
+3. Vào **Variables**: Thêm các biến như hướng dẫn ở bước 2 (`DATABASE_URL`, `REDIS_URL`...).
+4. Đợi build xong, vào **Settings** -> **Networking** -> **Generate Domain**. (Ví dụ: `eco-backend.up.railway.app`)
 
-## 🐛 Troubleshooting
+### Bước 4.2: Deploy Frontend Service
+1. Tạo thêm Service mới (hoặc New project nếu muốn tách hẳn): **New** -> **GitHub Repo** -> Chọn `Eco-product`.
+2. Vào **Settings** -> **Build** -> **Dockerfile Path** -> Nhập `Dockerfile.frontend`.
+3. Vào **Variables**:
+   - `VITE_API_URL`: `https://eco-backend.up.railway.app` (Domain của backend vừa tạo ở trên).
+   - *Lưu ý: Frontend chỉ cần biến này, không cần database/redis variables.*
+4. Vào **Settings** -> **Networking** -> **Generate Domain**.
 
-### Lỗi Database Connection
-- Đảm bảo `DATABASE_URL` có đủ user/pass.
-- Nếu dùng CockroachDB/Neon, thêm `?sslmode=verify-full` hoặc `?sslmode=require`.
-
-### Lỗi Prisma Client
-- Nếu gặp lỗi `libssl`, `openssl`, dự án đã được fix bằng cách thêm `linux-musl-openssl-3.0.x` vào `schema.prisma`. Đảm bảo bạn đã push code mới nhất.
-
-### Lỗi "exports is not defined"
-- Dự án đã chuyển sang CommonJS (`backend/package.json` type commonjs). Đảm bảo file này tồn tại.
+### Troubleshooting
+- **Frontend không gọi được API?** Kiểm tra xem bạn đã set `VITE_API_URL` chính xác là domain của backend chưa (không có dấu `/` ở cuối nếu code tự thêm, hoặc tùy code của bạn).
+- **CORS Error?** Đảm bảo biến `FRONTEND_ORIGIN` ở Backend Service đã điền domain của Frontend Service.
