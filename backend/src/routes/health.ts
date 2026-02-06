@@ -1,4 +1,7 @@
+import { Router } from 'express';
 import { cache } from '../lib/cache';
+
+export const healthRouter = Router();
 
 healthRouter.get('/health', async (_req, res) => {
     // Check Redis health (non-blocking for overall health unless critical)
