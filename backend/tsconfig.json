@@ -13,7 +13,9 @@
     "resolveJsonModule": true,
     "types": [
       "node"
-    ]
+    ],
+    "outDir": "dist",
+    "rootDir": "src"
   },
   "include": [
     "src/**/*.ts"

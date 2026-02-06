@@ -3,7 +3,7 @@ builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile"
 
 [deploy]
-startCommand = "node backend/dist/src/index.js"
+startCommand = "node --experimental-specifier-resolution=node backend/dist/index.js"
 healthcheckPath = "/api/health"
 healthcheckTimeout = 100
 restartPolicyType = "ON_FAILURE"
