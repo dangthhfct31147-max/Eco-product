@@ -74,6 +74,9 @@ model Product {
 
 	@@index([category])
 	@@index([sellerId])
+	@@index([createdAt])
+	@@index([title])
+	@@index([location])
 }
 
 model Cart {

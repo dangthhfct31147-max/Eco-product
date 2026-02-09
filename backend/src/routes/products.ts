@@ -59,7 +59,18 @@ productsRouter.get('/', async (req, res, next) => {
       where: where as any,
       orderBy: { createdAt: 'desc' as const },
       take: query.take ?? 50,
-      include: { seller: { select: { name: true } } },
+      select: {
+        id: true,
+        title: true,
+        priceVnd: true,
+        unit: true,
+        category: true,
+        location: true,
+        imageUrl: true,
+        co2SavingsKg: true,
+        createdAt: true,
+        seller: { select: { name: true } },
+      },
     };
 
     const rows = isAccelerateEnabled()
