@@ -16,6 +16,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { getApiUrl } from '@/utils/api';
 
 // --- Types & Constants ---
 
@@ -112,7 +113,7 @@ export const MapPage: React.FC<MapPageProps> = ({ user, onLoginRequest }) => {
   useEffect(() => {
     const controller = new AbortController();
 
-    fetch('/api/pollution', { signal: controller.signal })
+    fetch(getApiUrl('pollution'), { signal: controller.signal })
       .then(async (r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return (await r.json()) as any;
@@ -372,7 +373,7 @@ export const MapPage: React.FC<MapPageProps> = ({ user, onLoginRequest }) => {
     if (!tempMarkerPos || !user) return;
 
     try {
-      const res = await fetch('/api/pollution', {
+      const res = await fetch(getApiUrl('pollution'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -401,7 +402,7 @@ export const MapPage: React.FC<MapPageProps> = ({ user, onLoginRequest }) => {
     if (!confirm("Bạn có chắc chắn muốn xóa cảnh báo này không?")) return;
 
     try {
-      const res = await fetch(`/api/pollution/${id}`, {
+      const res = await fetch(getApiUrl(`pollution/${id}`), {
         method: 'DELETE',
       });
       if (!res.ok && res.status !== 204) {

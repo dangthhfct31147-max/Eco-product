@@ -16,6 +16,7 @@ import {
     User
 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { getApiUrl } from '@/utils/api';
 
 // Re-use Product type from MarketplacePage
 export interface Product {
@@ -61,7 +62,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
         setLoading(true);
         setError(null);
 
-        fetch(`/api/products/${productId}`, { signal: controller.signal })
+        fetch(getApiUrl(`products/${productId}`), { signal: controller.signal })
             .then(async (r) => {
                 if (!r.ok) throw new Error(`Không tìm thấy sản phẩm`);
                 return (await r.json()) as { product: Product };
@@ -69,7 +70,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
             .then((data) => {
                 setProduct(data.product);
                 // Fetch related products after getting the main product
-                return fetch(`/api/products?category=${encodeURIComponent(data.product.category)}&limit=4`, { signal: controller.signal });
+                return fetch(getApiUrl(`products?category=${encodeURIComponent(data.product.category)}&limit=4`), { signal: controller.signal });
             })
             .then(async (r) => {
                 if (r.ok) {

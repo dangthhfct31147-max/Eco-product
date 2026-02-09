@@ -14,6 +14,7 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { getApiUrl } from '@/utils/api';
 
 // --- Types ---
 
@@ -63,8 +64,8 @@ export const CommunityPage: React.FC<CommunityPageProps> = ({ user, onLoginReque
     const controller = new AbortController();
 
     Promise.all([
-      fetch('/api/posts', { signal: controller.signal }).then(r => r.ok ? r.json() : Promise.reject()),
-      fetch('/api/events', { signal: controller.signal }).then(r => r.ok ? r.json() : Promise.reject()),
+      fetch(getApiUrl('posts'), { signal: controller.signal }).then(r => r.ok ? r.json() : Promise.reject()),
+      fetch(getApiUrl('events'), { signal: controller.signal }).then(r => r.ok ? r.json() : Promise.reject()),
     ])
       .then(([postsData, eventsData]) => {
         if (Array.isArray(postsData?.posts)) setPosts(postsData.posts);
@@ -86,7 +87,7 @@ export const CommunityPage: React.FC<CommunityPageProps> = ({ user, onLoginReque
     const nextLiked = !target.is_liked;
     setPosts(posts.map(p => p.id === id ? { ...p, is_liked: nextLiked, likes: nextLiked ? p.likes + 1 : p.likes - 1 } : p));
 
-    fetch(`/api/posts/${id}/like`, {
+    fetch(getApiUrl(`posts/${id}/like`), {
       method: nextLiked ? 'POST' : 'DELETE',
       headers: jsonHeaders,
     }).catch(() => {
@@ -102,7 +103,7 @@ export const CommunityPage: React.FC<CommunityPageProps> = ({ user, onLoginReque
     const nextGoing = !target.is_going;
     setEvents(events.map(e => e.id === id ? { ...e, is_going: nextGoing, attendees: nextGoing ? e.attendees + 1 : e.attendees - 1 } : e));
 
-    fetch(`/api/events/${id}/rsvp`, {
+    fetch(getApiUrl(`events/${id}/rsvp`), {
       method: nextGoing ? 'POST' : 'DELETE',
       headers: jsonHeaders,
     }).catch(() => {
@@ -115,7 +116,7 @@ export const CommunityPage: React.FC<CommunityPageProps> = ({ user, onLoginReque
     if (!newPostContent.trim()) return;
 
     try {
-      const res = await fetch('/api/posts', {
+      const res = await fetch(getApiUrl('posts'), {
         method: 'POST',
         headers: jsonHeaders,
         body: JSON.stringify({ content: newPostContent, tags: [] }),

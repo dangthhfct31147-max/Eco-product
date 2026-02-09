@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import QRCode from 'qrcode';
 import { Loader2, ShieldCheck, ShieldOff, Copy, Check, ArrowLeft, ChevronDown, User as UserIcon, KeyRound } from 'lucide-react';
+import { getApiUrl } from '@/utils/api';
 
 type TotpStatusResponse = {
     totpEnabled: boolean;
@@ -111,7 +112,7 @@ export const ProfilePage = ({
         setSuccess(null);
 
         try {
-            const res = await fetch('/api/auth/totp');
+            const res = await fetch(getApiUrl('auth/totp'));
             const data = (await res.json()) as any;
             if (!res.ok) throw new Error(data?.error ?? 'Không tải được trạng thái TOTP');
 
@@ -131,7 +132,7 @@ export const ProfilePage = ({
 
         const controller = new AbortController();
         try {
-            const res = await fetch('/api/auth/me', {
+            const res = await fetch(getApiUrl('auth/me'), {
                 signal: controller.signal,
                 cache: 'no-store',
             });
@@ -177,7 +178,7 @@ export const ProfilePage = ({
         setSuccess(null);
 
         try {
-            const res = await fetch('/api/auth/me', {
+            const res = await fetch(getApiUrl('auth/me'), {
                 method: 'PATCH',
                 headers: jsonHeaders,
                 body: JSON.stringify({ name: profileName.trim() }),
@@ -205,7 +206,7 @@ export const ProfilePage = ({
         setSuccess(null);
 
         try {
-            const res = await fetch('/api/auth/totp/setup', {
+            const res = await fetch(getApiUrl('auth/totp/setup'), {
                 method: 'POST',
                 headers: jsonHeaders,
             });
@@ -236,7 +237,7 @@ export const ProfilePage = ({
         setSuccess(null);
 
         try {
-            const res = await fetch('/api/auth/totp/enable', {
+            const res = await fetch(getApiUrl('auth/totp/enable'), {
                 method: 'POST',
                 headers: jsonHeaders,
                 body: JSON.stringify({ code }),
@@ -262,7 +263,7 @@ export const ProfilePage = ({
         setSuccess(null);
 
         try {
-            const res = await fetch('/api/auth/totp/disable', {
+            const res = await fetch(getApiUrl('auth/totp/disable'), {
                 method: 'POST',
                 headers: jsonHeaders,
             });
@@ -301,7 +302,7 @@ export const ProfilePage = ({
         setSuccess(null);
 
         try {
-            const res = await fetch('/api/auth/password', {
+            const res = await fetch(getApiUrl('auth/password'), {
                 method: 'POST',
                 headers: jsonHeaders,
                 body: JSON.stringify({

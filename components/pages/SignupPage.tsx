@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Check, ChevronRight, Loader2, ChevronDown, MapPin } from 'lucide-react';
+import { getApiUrl } from '@/utils/api';
 
 const PROVINCES = [
   'An Giang',
@@ -107,7 +108,7 @@ export const SignupPage = ({
     setLoading(true);
 
     try {
-      const res = await fetch('/api/auth/signup', {
+      const res = await fetch(getApiUrl('auth/signup'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -13,6 +13,7 @@ import {
   Check
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { getApiUrl } from '@/utils/api';
 
 // --- Types ---
 
@@ -53,7 +54,7 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({ user, onLoginR
   useEffect(() => {
     const controller = new AbortController();
     setIsLoadingRemote(true);
-    fetch('/api/products', { signal: controller.signal })
+    fetch(getApiUrl('products'), { signal: controller.signal })
       .then(async (r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return (await r.json()) as { products: Product[] };
@@ -284,7 +285,7 @@ const CreateListingModal: React.FC<{ isOpen: boolean, onClose: () => void, onSub
     setLoading(true);
 
     try {
-      const res = await fetch('/api/products', {
+      const res = await fetch(getApiUrl('products'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

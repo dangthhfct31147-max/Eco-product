@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { getApiUrl } from '@/utils/api';
 import {
   Home,
   Map,
@@ -119,7 +120,7 @@ export default function App() {
 
     (async () => {
       try {
-        const res = await fetch('/api/auth/me', {
+        const res = await fetch(getApiUrl('auth/me'), {
           signal: controller.signal,
           cache: 'no-store',
         });
@@ -151,7 +152,7 @@ export default function App() {
       return;
     }
     try {
-      const res = await fetch('/api/cart');
+      const res = await fetch(getApiUrl('cart'));
       const data = (await res.json()) as any;
       if (!res.ok) throw new Error(data?.error ?? 'Không tải được giỏ hàng');
       setCartItems(Array.isArray(data?.cart?.items) ? data.cart.items : []);
@@ -173,7 +174,7 @@ export default function App() {
       return;
     }
     try {
-      const res = await fetch('/api/cart/items', {
+      const res = await fetch(getApiUrl('cart/items'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ productId: product.id, quantity: 1 }),
@@ -199,7 +200,7 @@ export default function App() {
     if (!existing) return;
     const nextQty = Math.max(1, existing.quantity + delta);
 
-    const res = await fetch(`/api/cart/items/${productId}`, {
+    const res = await fetch(getApiUrl(`cart/items/${productId}`), {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ quantity: nextQty }),
@@ -213,13 +214,13 @@ export default function App() {
 
   const removeFromCart = async (productId: string) => {
     if (!user) return;
-    await fetch(`/api/cart/items/${productId}`, { method: 'DELETE' });
+    await fetch(getApiUrl(`cart/items/${productId}`), { method: 'DELETE' });
     setCartItems((prev) => prev.filter((x) => x.product.id !== productId));
   };
 
   const handleLogout = async () => {
     try {
-      await fetch('/api/auth/logout', { method: 'POST' });
+      await fetch(getApiUrl('auth/logout'), { method: 'POST' });
     } catch {
       // ignore
     }
