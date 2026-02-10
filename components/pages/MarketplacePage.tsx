@@ -14,6 +14,8 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getApiUrl } from '@/utils/api';
+import OptimizedImage from '../ui/OptimizedImage';
+import Pagination from '../ui/Pagination';
 
 // --- Types ---
 
@@ -50,6 +52,10 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({ user, onLoginR
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isLoadingRemote, setIsLoadingRemote] = useState(false);
 
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 8;
+
   // Load from backend
   useEffect(() => {
     const controller = new AbortController();
@@ -77,6 +83,17 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({ user, onLoginR
     const matchesCategory = selectedCategory === 'Tất cả' || p.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
+
+  // Pagination Logic
+  const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE);
+  const paginatedProducts = filteredProducts.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedCategory]);
 
   const handleCreateListing = (newProduct: Product) => {
     setProducts([newProduct, ...products]);
@@ -153,17 +170,27 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({ user, onLoginR
 
         {/* Grid */}
         {filteredProducts.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {filteredProducts.map((product) => (
-              <ProductCard
-                key={product.id}
-                product={product}
-                formatCurrency={formatCurrency}
-                onAddToCart={() => addToCart(product)}
-                onViewProduct={() => onViewProduct(product.id)}
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+              {paginatedProducts.map((product) => (
+                <ProductCard
+                  key={product.id}
+                  product={product}
+                  formatCurrency={formatCurrency}
+                  onAddToCart={() => addToCart(product)}
+                  onViewProduct={() => onViewProduct(product.id)}
+                />
+              ))}
+            </div>
+
+            <div className="mt-8">
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
               />
-            ))}
-          </div>
+            </div>
+          </>
         ) : (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
@@ -188,7 +215,7 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({ user, onLoginR
         onSubmit={handleCreateListing}
         user={user}
       />
-    </div>
+    </div >
   );
 };
 
@@ -205,11 +232,11 @@ const ProductCard: React.FC<{ product: Product, formatCurrency: (v: number) => s
     >
       {/* Image */}
       <div className="relative aspect-[4/3] bg-slate-100 overflow-hidden">
-        <img
+        <OptimizedImage
           src={product.image}
           alt={product.title}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-          loading="lazy"
+          lazy={true}
         />
         <div className="absolute top-3 left-3 bg-white/90 backdrop-blur px-2 py-1 rounded-md text-xs font-semibold text-slate-700 uppercase tracking-wider shadow-sm">
           {product.category}
