@@ -147,14 +147,15 @@ export const MapPage: React.FC<MapPageProps> = ({ user, onLoginRequest }) => {
     const dist = currentCenter.distanceTo([lat, lng]);
 
     // Closer = faster, Farther = slower (but capped)
-    // < 1km: 1s, < 10km: 1.5s, > 10km: 2s
-    let duration = 1.5;
-    if (dist < 1000) duration = 0.8;
-    else if (dist > 10000) duration = 2.2;
+    // Smoother & Faster settings
+    let duration = 1.0;
+    if (dist < 1000) duration = 0.5; // Very close: Snap quickly
+    else if (dist > 10000) duration = 1.5; // Far: Faster than before
 
     map.flyTo([lat, lng], 14, {
       duration,
-      easeLinearity: 0.25,
+      easeLinearity: 0.1, // Lower = smoother curve
+      noMoveStart: true // Prevent firing movestart event if not moving
     });
   };
 
