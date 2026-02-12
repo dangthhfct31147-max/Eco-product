@@ -51,10 +51,23 @@
 
     /* Marker appear animation - bounce scale-in */
     @keyframes marker-appear {
-        0% { transform: scale(0) translateY(10px); opacity: 0; }
-        60% { transform: scale(1.25) translateY(-3px); opacity: 1; }
-        80% { transform: scale(0.95) translateY(1px); }
-        100% { transform: scale(1) translateY(0); }
+        0% {
+            transform: scale(0) translateY(10px);
+            opacity: 0;
+        }
+
+        60% {
+            transform: scale(1.25) translateY(-3px);
+            opacity: 1;
+        }
+
+        80% {
+            transform: scale(0.95) translateY(1px);
+        }
+
+        100% {
+            transform: scale(1) translateY(0);
+        }
     }
 
     .marker-animate-in {
@@ -63,9 +76,23 @@
 
     /* Marker highlight - ring pulse on target */
     @keyframes marker-highlight-ring {
-        0% { transform: scale(0.8); opacity: 0.8; box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6); }
-        50% { transform: scale(1.4); opacity: 0.4; box-shadow: 0 0 0 12px rgba(16, 185, 129, 0); }
-        100% { transform: scale(1.8); opacity: 0; box-shadow: 0 0 0 20px rgba(16, 185, 129, 0); }
+        0% {
+            transform: scale(0.8);
+            opacity: 0.8;
+            box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6);
+        }
+
+        50% {
+            transform: scale(1.4);
+            opacity: 0.4;
+            box-shadow: 0 0 0 12px rgba(16, 185, 129, 0);
+        }
+
+        100% {
+            transform: scale(1.8);
+            opacity: 0;
+            box-shadow: 0 0 0 20px rgba(16, 185, 129, 0);
+        }
     }
 
     .marker-highlight {
@@ -83,8 +110,13 @@
 
     /* Fly indicator - progress bar */
     @keyframes fly-progress {
-        0% { width: 0%; }
-        100% { width: 100%; }
+        0% {
+            width: 0%;
+        }
+
+        100% {
+            width: 100%;
+        }
     }
 
     .fly-indicator-bar {
@@ -99,5 +131,68 @@
 
     .marker-pin {
         transition: transform 0.2s ease, filter 0.2s ease;
+    }
+
+    /* --- POI Marker Styles --- */
+    .poi-marker {
+        display: flex;
+        align-items: center;
+        gap: 3px;
+        cursor: pointer;
+        animation: poi-appear 0.3s ease-out both;
+    }
+
+    .poi-emoji {
+        font-size: 16px;
+        line-height: 1;
+        filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.15));
+        transition: transform 0.15s ease;
+    }
+
+    .poi-marker:hover .poi-emoji {
+        transform: scale(1.25);
+    }
+
+    .poi-label {
+        font-size: 10px;
+        font-weight: 600;
+        color: #334155;
+        white-space: nowrap;
+        text-shadow: 0 0 3px #fff, 0 0 3px #fff, 0 0 3px #fff;
+        max-width: 100px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    @keyframes poi-appear {
+        0% {
+            opacity: 0;
+            transform: scale(0.5);
+        }
+
+        100% {
+            opacity: 1;
+            transform: scale(1);
+        }
+    }
+
+    /* POI Tooltip */
+    .poi-tooltip {
+        font-family: 'Inter', sans-serif !important;
+        font-size: 12px !important;
+        padding: 6px 10px !important;
+        border-radius: 8px !important;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+        border: 1px solid #e2e8f0 !important;
+    }
+
+    /* No scrollbar utility */
+    .no-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
+
+    .no-scrollbar::-webkit-scrollbar {
+        display: none;
     }
 }

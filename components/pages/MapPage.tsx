@@ -14,7 +14,8 @@ import {
   Layers,
   ChevronLeft,
   ChevronRight,
-  Search
+  Search,
+  Building2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getApiUrl } from '@/utils/api';
@@ -36,6 +37,64 @@ interface PollutionMarker {
   createdAt: string; // Fixed: Matches Prisma default
   is_anonymous: boolean;
 }
+
+// --- POI Types & Categories ---
+type POICategory = 'food' | 'education' | 'health' | 'shopping' | 'atm' | 'worship' | 'hotel';
+
+interface POIItem {
+  id: number;
+  lat: number;
+  lng: number;
+  name: string;
+  category: POICategory;
+}
+
+const POI_CATEGORIES: Record<POICategory, { label: string; emoji: string; color: string; tags: string }> = {
+  food: {
+    label: 'Ăn uống',
+    emoji: '🍜',
+    color: '#f97316',
+    tags: 'node["amenity"~"restaurant|cafe|fast_food"]',
+  },
+  education: {
+    label: 'Giáo dục',
+    emoji: '🎓',
+    color: '#3b82f6',
+    tags: 'node["amenity"~"school|university|college"]',
+  },
+  health: {
+    label: 'Y tế',
+    emoji: '🏥',
+    color: '#ef4444',
+    tags: 'node["amenity"~"hospital|clinic|pharmacy"]',
+  },
+  shopping: {
+    label: 'Mua sắm',
+    emoji: '🛒',
+    color: '#a855f7',
+    tags: 'node["shop"~"supermarket|convenience|mall"]',
+  },
+  atm: {
+    label: 'ATM/Ngân hàng',
+    emoji: '🏧',
+    color: '#0ea5e9',
+    tags: 'node["amenity"~"atm|bank"]',
+  },
+  worship: {
+    label: 'Tôn giáo',
+    emoji: '⛩️',
+    color: '#f59e0b',
+    tags: 'node["amenity"="place_of_worship"]',
+  },
+  hotel: {
+    label: 'Khách sạn',
+    emoji: '🏨',
+    color: '#ec4899',
+    tags: 'node["tourism"~"hotel|guest_house"]',
+  },
+};
+
+const ALL_POI_CATEGORIES = Object.keys(POI_CATEGORIES) as POICategory[];
 
 
 
@@ -92,6 +151,9 @@ export const MapPage: React.FC<MapPageProps> = ({ user, onLoginRequest }) => {
   const tempMarkerRef = useRef<L.Marker | null>(null);
   const highlightLayerRef = useRef<L.LayerGroup | null>(null);
   const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const poiLayerRef = useRef<L.LayerGroup | null>(null);
+  const poiCacheRef = useRef<Map<string, POIItem[]>>(new Map());
+  const poiDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [markers, setMarkers] = useState<PollutionMarker[]>([]);
   const [isMapLoaded, setIsMapLoaded] = useState(false);
@@ -102,6 +164,12 @@ export const MapPage: React.FC<MapPageProps> = ({ user, onLoginRequest }) => {
   const [mapStyle, setMapStyle] = useState<'streets' | 'satellite'>('streets');
   const [isFlying, setIsFlying] = useState(false);
   const [flyDuration, setFlyDuration] = useState(1);
+
+  // POI State
+  const [showPOI, setShowPOI] = useState(false);
+  const [poiItems, setPOIItems] = useState<POIItem[]>([]);
+  const [activePoiCategories, setActivePoiCategories] = useState<Set<POICategory>>(new Set(ALL_POI_CATEGORIES));
+  const [isLoadingPOI, setIsLoadingPOI] = useState(false);
 
   // Form State
   const [formData, setFormData] = useState<{
@@ -339,6 +407,7 @@ export const MapPage: React.FC<MapPageProps> = ({ user, onLoginRequest }) => {
       markerLayerRef.current = L.layerGroup().addTo(map);
       userLocLayerRef.current = L.layerGroup().addTo(map);
       highlightLayerRef.current = L.layerGroup().addTo(map);
+      poiLayerRef.current = L.layerGroup().addTo(map);
 
       // Ensure correct initial sizing (helps when the map mounts inside dynamic layouts)
       setTimeout(() => {
@@ -364,6 +433,170 @@ export const MapPage: React.FC<MapPageProps> = ({ user, onLoginRequest }) => {
       mapRef.current = null;
     };
   }, []);
+
+  // --- POI Fetch Logic ---
+  const fetchPOIs = useCallback(async (bounds: L.LatLngBounds, categories: Set<POICategory>) => {
+    const south = bounds.getSouth();
+    const west = bounds.getWest();
+    const north = bounds.getNorth();
+    const east = bounds.getEast();
+    const cacheKey = `${south.toFixed(3)},${west.toFixed(3)},${north.toFixed(3)},${east.toFixed(3)}`;
+
+    // Check cache
+    if (poiCacheRef.current.has(cacheKey)) {
+      setPOIItems(poiCacheRef.current.get(cacheKey)!);
+      return;
+    }
+
+    setIsLoadingPOI(true);
+
+    // Build Overpass query for active categories
+    const activeCats = ALL_POI_CATEGORIES.filter(c => categories.has(c));
+    if (activeCats.length === 0) {
+      setPOIItems([]);
+      setIsLoadingPOI(false);
+      return;
+    }
+
+    const bbox = `${south},${west},${north},${east}`;
+    const tagQueries = activeCats.map(cat => {
+      const cfg = POI_CATEGORIES[cat];
+      return cfg.tags + `(${bbox});`;
+    }).join('\n');
+
+    const query = `[out:json][timeout:10];(\n${tagQueries}\n);out body 200;`;
+
+    try {
+      const res = await fetch('https://overpass-api.de/api/interpreter', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `data=${encodeURIComponent(query)}`,
+      });
+      const data = await res.json();
+
+      const items: POIItem[] = (data.elements || []).map((el: any) => {
+        // Determine category from tags
+        let category: POICategory = 'food';
+        if (el.tags?.amenity) {
+          const a = el.tags.amenity;
+          if (['restaurant', 'cafe', 'fast_food'].includes(a)) category = 'food';
+          else if (['school', 'university', 'college'].includes(a)) category = 'education';
+          else if (['hospital', 'clinic', 'pharmacy'].includes(a)) category = 'health';
+          else if (['atm', 'bank'].includes(a)) category = 'atm';
+          else if (a === 'place_of_worship') category = 'worship';
+        } else if (el.tags?.shop) {
+          category = 'shopping';
+        } else if (el.tags?.tourism) {
+          category = 'hotel';
+        }
+
+        return {
+          id: el.id,
+          lat: el.lat,
+          lng: el.lon,
+          name: el.tags?.name || el.tags?.['name:vi'] || POI_CATEGORIES[category].label,
+          category,
+        };
+      });
+
+      // Cache result (limit cache size to 20 entries)
+      if (poiCacheRef.current.size > 20) {
+        const firstKey = poiCacheRef.current.keys().next().value;
+        if (firstKey) poiCacheRef.current.delete(firstKey);
+      }
+      poiCacheRef.current.set(cacheKey, items);
+      setPOIItems(items);
+    } catch (err) {
+      console.error('POI fetch failed:', err);
+    } finally {
+      setIsLoadingPOI(false);
+    }
+  }, []);
+
+  // --- POI Render Effect ---
+  useEffect(() => {
+    if (!poiLayerRef.current) return;
+    poiLayerRef.current.clearLayers();
+
+    if (!showPOI || poiItems.length === 0) return;
+
+    const currentZoom = mapRef.current?.getZoom() || 0;
+    const showLabels = currentZoom >= 15;
+
+    poiItems.forEach(poi => {
+      if (!activePoiCategories.has(poi.category)) return;
+
+      const cfg = POI_CATEGORIES[poi.category];
+      const labelHtml = showLabels
+        ? `<span class="poi-label">${poi.name.length > 18 ? poi.name.slice(0, 18) + '…' : poi.name}</span>`
+        : '';
+
+      const iconHtml = `
+        <div class="poi-marker" style="--poi-color: ${cfg.color}">
+          <span class="poi-emoji">${cfg.emoji}</span>
+          ${labelHtml}
+        </div>
+      `;
+
+      const icon = L.divIcon({
+        className: 'custom-div-icon',
+        html: iconHtml,
+        iconSize: [20, 20],
+        iconAnchor: [10, 10],
+      });
+
+      const m = L.marker([poi.lat, poi.lng], { icon, zIndexOffset: -100, opacity: 0.9 });
+      m.bindTooltip(`<b>${poi.name}</b><br/><span style="color:${cfg.color}">${cfg.emoji} ${cfg.label}</span>`, {
+        direction: 'top',
+        offset: [0, -10],
+        className: 'poi-tooltip',
+      });
+      m.addTo(poiLayerRef.current!);
+    });
+  }, [poiItems, showPOI, activePoiCategories]);
+
+  // --- POI moveend/zoomend listener ---
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !showPOI) return;
+
+    const handleMapMove = () => {
+      const zoom = map.getZoom();
+      if (zoom < 13) {
+        poiLayerRef.current?.clearLayers();
+        setPOIItems([]);
+        return;
+      }
+
+      // Debounce to 500ms
+      if (poiDebounceRef.current) clearTimeout(poiDebounceRef.current);
+      poiDebounceRef.current = setTimeout(() => {
+        fetchPOIs(map.getBounds(), activePoiCategories);
+      }, 500);
+    };
+
+    // Initial fetch
+    handleMapMove();
+
+    map.on('moveend', handleMapMove);
+    map.on('zoomend', handleMapMove);
+    return () => {
+      map.off('moveend', handleMapMove);
+      map.off('zoomend', handleMapMove);
+      if (poiDebounceRef.current) clearTimeout(poiDebounceRef.current);
+    };
+  }, [showPOI, fetchPOIs, activePoiCategories]);
+
+  const togglePoiCategory = (cat: POICategory) => {
+    setActivePoiCategories(prev => {
+      const next = new Set(prev);
+      if (next.has(cat)) next.delete(cat);
+      else next.add(cat);
+      return next;
+    });
+    // Clear cache to re-fetch with new categories
+    poiCacheRef.current.clear();
+  };
 
   // --- Map Style Switcher ---
   const toggleMapStyle = () => {
@@ -731,8 +964,15 @@ export const MapPage: React.FC<MapPageProps> = ({ user, onLoginRequest }) => {
           </div>
         </div>
 
-        {/* Layer Toggle Button (Satellite/Streets) */}
+        {/* Layer Toggle Buttons (Satellite/Streets + POI) */}
         <div className="absolute bottom-40 right-4 z-[400] sm:bottom-24 sm:right-14 flex flex-col gap-2">
+          <button
+            onClick={() => setShowPOI(prev => !prev)}
+            className={`p-3 rounded-full shadow-lg transition-all active:scale-95 ${showPOI ? 'bg-emerald-500 text-white hover:bg-emerald-600' : 'bg-white text-slate-600 hover:text-emerald-600 hover:bg-slate-50'}`}
+            title={showPOI ? 'Ẩn địa điểm' : 'Hiện địa điểm'}
+          >
+            {isLoadingPOI ? <Loader2 size={20} className="animate-spin" /> : <Building2 size={20} />}
+          </button>
           <button
             onClick={toggleMapStyle}
             className="bg-white p-3 rounded-full shadow-lg text-slate-600 hover:text-emerald-600 hover:bg-slate-50 transition-all active:scale-95"
@@ -741,6 +981,42 @@ export const MapPage: React.FC<MapPageProps> = ({ user, onLoginRequest }) => {
             <Layers size={20} className={mapStyle === 'satellite' ? "text-emerald-500" : ""} />
           </button>
         </div>
+
+        {/* POI Category Filter Chips */}
+        <AnimatePresence>
+          {showPOI && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
+              className="absolute bottom-[7.5rem] left-1/2 -translate-x-1/2 z-[400] w-auto max-w-[90vw]"
+            >
+              <div className="bg-white/90 backdrop-blur-md rounded-full shadow-lg border border-slate-200 px-2 py-1.5 flex items-center gap-1 overflow-x-auto no-scrollbar">
+                {ALL_POI_CATEGORIES.map(cat => {
+                  const cfg = POI_CATEGORIES[cat];
+                  const isActive = activePoiCategories.has(cat);
+                  return (
+                    <button
+                      key={cat}
+                      onClick={() => togglePoiCategory(cat)}
+                      className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-all ${isActive
+                        ? 'bg-slate-800 text-white shadow-sm'
+                        : 'bg-slate-100 text-slate-400 hover:bg-slate-200 hover:text-slate-600'
+                        }`}
+                      title={cfg.label}
+                    >
+                      <span>{cfg.emoji}</span>
+                      <span className="hidden sm:inline">{cfg.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              {mapRef.current && mapRef.current.getZoom() < 13 && (
+                <div className="text-center text-[10px] text-slate-400 mt-1">Zoom vào gần hơn để thấy địa điểm</div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Locate Button */}
         <div className="absolute bottom-24 right-4 z-[400] sm:bottom-8 sm:right-14">
