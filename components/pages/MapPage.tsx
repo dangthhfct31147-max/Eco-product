@@ -398,7 +398,7 @@ export const MapPage: React.FC<MapPageProps> = ({ user, onLoginRequest }) => {
         attribution: '&copy; OpenStreetMap &copy; CARTO',
         subdomains: 'abcd',
         maxZoom: 20,
-        keepBuffer: 8,
+        keepBuffer: 4,
       }).addTo(map);
 
       // Layers
@@ -613,9 +613,12 @@ export const MapPage: React.FC<MapPageProps> = ({ user, onLoginRequest }) => {
   };
 
 
-  // --- Auto Geolocate & Smart Focus Logic ---
+  // --- Auto Geolocate & Smart Focus Logic (runs once) ---
+  const hasAutoFocused = useRef(false);
   useEffect(() => {
-    if (!isMapLoaded || !mapRef.current) return;
+    if (!isMapLoaded || !mapRef.current || hasAutoFocused.current) return;
+    if (markers.length === 0) return; // Wait for markers to arrive
+    hasAutoFocused.current = true;
 
     const performSmartFocus = () => {
       if (!('geolocation' in navigator)) return;
@@ -714,7 +717,7 @@ export const MapPage: React.FC<MapPageProps> = ({ user, onLoginRequest }) => {
 
     markers.forEach((marker, index) => {
       // Stagger delay for appear animation
-      const staggerDelay = Math.min(index * 30, 500); // max 500ms total stagger
+      const staggerDelay = Math.min(index * 15, 300); // max 300ms total stagger
 
       // Create Custom DivIcon with appear animation
       const iconHtml = `

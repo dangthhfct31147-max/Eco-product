@@ -103,7 +103,8 @@
         border: 3px solid #10b981;
         top: 50%;
         left: 50%;
-        transform: translate(-50%, -50%);
+        margin-top: -20px;
+        margin-left: -20px;
         pointer-events: none;
         animation: marker-highlight-ring 1s ease-out infinite;
     }
