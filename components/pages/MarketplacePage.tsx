@@ -12,10 +12,11 @@ import {
   Loader2,
   Check
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useScroll, useMotionValueEvent } from 'framer-motion';
 import { getApiUrl } from '@/utils/api';
 import OptimizedImage from '../ui/OptimizedImage';
 import Pagination from '../ui/Pagination';
+import { useScrollDirection } from '@/utils/hooks';
 
 // --- Types ---
 
@@ -55,6 +56,10 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({ user, onLoginR
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 8;
+
+  // Scroll Direction for Header
+  const scrollDirection = useScrollDirection();
+  const showHeader = scrollDirection !== 'down';
 
   // Load from backend
   useEffect(() => {
@@ -108,7 +113,12 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({ user, onLoginR
     <div className="min-h-screen bg-slate-50 pb-20 select-none">
 
       {/* Header / Search Section */}
-      <div className="bg-white border-b border-slate-200 sticky top-16 z-30">
+      <motion.div
+        className="bg-white border-b border-slate-200 sticky top-16 z-30"
+        initial={{ y: 0 }}
+        animate={{ y: showHeader ? 0 : -80 }}
+        transition={{ duration: 0.3 }}
+      >
         <div className="container mx-auto px-4 py-4 space-y-4">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
 
@@ -153,7 +163,7 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({ user, onLoginR
             ))}
           </div>
         </div>
-      </div>
+      </motion.div>
 
       {/* Main Content */}
       <div className="container mx-auto px-4 py-8">
