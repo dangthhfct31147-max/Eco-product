@@ -398,9 +398,7 @@ export const MapPage: React.FC<MapPageProps> = ({ user, onLoginRequest }) => {
         attribution: '&copy; OpenStreetMap &copy; CARTO',
         subdomains: 'abcd',
         maxZoom: 20,
-        keepBuffer: 6,
-        noWrap: true, // Don't repeat the world horizontally
-        bounds: vietnamBounds // Optimize loading for bounds
+        keepBuffer: 8,
       }).addTo(map);
 
       // Layers
