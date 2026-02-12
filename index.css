@@ -48,4 +48,56 @@
     .leaflet-tile {
         transition: opacity 0.3s ease-in-out;
     }
+
+    /* Marker appear animation - bounce scale-in */
+    @keyframes marker-appear {
+        0% { transform: scale(0) translateY(10px); opacity: 0; }
+        60% { transform: scale(1.25) translateY(-3px); opacity: 1; }
+        80% { transform: scale(0.95) translateY(1px); }
+        100% { transform: scale(1) translateY(0); }
+    }
+
+    .marker-animate-in {
+        animation: marker-appear 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    }
+
+    /* Marker highlight - ring pulse on target */
+    @keyframes marker-highlight-ring {
+        0% { transform: scale(0.8); opacity: 0.8; box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6); }
+        50% { transform: scale(1.4); opacity: 0.4; box-shadow: 0 0 0 12px rgba(16, 185, 129, 0); }
+        100% { transform: scale(1.8); opacity: 0; box-shadow: 0 0 0 20px rgba(16, 185, 129, 0); }
+    }
+
+    .marker-highlight {
+        position: absolute;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        border: 3px solid #10b981;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        pointer-events: none;
+        animation: marker-highlight-ring 1s ease-out infinite;
+    }
+
+    /* Fly indicator - progress bar */
+    @keyframes fly-progress {
+        0% { width: 0%; }
+        100% { width: 100%; }
+    }
+
+    .fly-indicator-bar {
+        animation: fly-progress var(--fly-duration, 1s) ease-in-out forwards;
+    }
+
+    /* Marker hover lift effect */
+    .marker-interactive:hover .marker-pin {
+        transform: rotate(-45deg) scale(1.15);
+        filter: brightness(1.1);
+    }
+
+    .marker-pin {
+        transition: transform 0.2s ease, filter 0.2s ease;
+    }
 }

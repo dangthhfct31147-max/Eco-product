@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import L from 'leaflet';
 import {
   AlertTriangle,
@@ -90,6 +90,8 @@ export const MapPage: React.FC<MapPageProps> = ({ user, onLoginRequest }) => {
   const userLocLayerRef = useRef<L.LayerGroup | null>(null);
   const tileLayerRef = useRef<L.TileLayer | null>(null);
   const tempMarkerRef = useRef<L.Marker | null>(null);
+  const highlightLayerRef = useRef<L.LayerGroup | null>(null);
+  const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [markers, setMarkers] = useState<PollutionMarker[]>([]);
   const [isMapLoaded, setIsMapLoaded] = useState(false);
@@ -98,6 +100,8 @@ export const MapPage: React.FC<MapPageProps> = ({ user, onLoginRequest }) => {
   const [tempMarkerPos, setTempMarkerPos] = useState<{ lat: number, lng: number } | null>(null);
   const [selectedMarker, setSelectedMarker] = useState<PollutionMarker | null>(null);
   const [mapStyle, setMapStyle] = useState<'streets' | 'satellite'>('streets');
+  const [isFlying, setIsFlying] = useState(false);
+  const [flyDuration, setFlyDuration] = useState(1);
 
   // Form State
   const [formData, setFormData] = useState<{
@@ -138,26 +142,114 @@ export const MapPage: React.FC<MapPageProps> = ({ user, onLoginRequest }) => {
     return () => clearInterval(interval);
   }, []);
 
-  const smoothFlyTo = (lat: number, lng: number) => {
+  // --- Highlight target marker with ring pulse ---
+  const highlightMarker = useCallback((lat: number, lng: number) => {
+    if (!mapRef.current || !highlightLayerRef.current) return;
+
+    // Clear previous highlight
+    highlightLayerRef.current.clearLayers();
+    if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
+
+    const highlightIcon = L.divIcon({
+      className: 'custom-div-icon',
+      html: `<div style="position:relative;width:48px;height:48px;"><div class="marker-highlight"></div></div>`,
+      iconSize: [48, 48],
+      iconAnchor: [24, 48],
+    });
+
+    const highlightMarkerObj = L.marker([lat, lng], { icon: highlightIcon, interactive: false, zIndexOffset: 2000 });
+    highlightMarkerObj.addTo(highlightLayerRef.current);
+
+    // Auto-remove after 3 seconds
+    highlightTimerRef.current = setTimeout(() => {
+      highlightLayerRef.current?.clearLayers();
+    }, 3000);
+  }, []);
+
+  // --- Enhanced smoothFlyTo with zoom arc & highlight ---
+  const smoothFlyTo = useCallback((lat: number, lng: number, options?: { highlight?: boolean }) => {
     if (!mapRef.current) return;
     const map = mapRef.current;
+    const shouldHighlight = options?.highlight ?? true;
 
-    // Calculate distance to adjust duration dynamically
+    // Calculate distance to adjust duration and zoom dynamically
     const currentCenter = map.getCenter();
     const dist = currentCenter.distanceTo([lat, lng]);
 
-    // Closer = faster, Farther = slower (but capped)
-    // Smoother & Faster settings
+    // Dynamic duration: closer = faster, farther = slightly slower
     let duration = 1.0;
-    if (dist < 1000) duration = 0.5; // Very close: Snap quickly
-    else if (dist > 10000) duration = 1.5; // Far: Faster than before
+    if (dist < 500) duration = 0.4;
+    else if (dist < 2000) duration = 0.6;
+    else if (dist < 10000) duration = 1.0;
+    else if (dist < 50000) duration = 1.3;
+    else if (dist < 200000) duration = 1.6;
+    else duration = 2.0;
 
-    map.flyTo([lat, lng], 14, {
-      duration,
-      easeLinearity: 0.1, // Lower = smoother curve
-      noMoveStart: true // Prevent firing movestart event if not moving
-    });
-  };
+    // Zoom arc: for long distances, zoom out first then zoom in
+    // This creates a Google Maps-like "arc" effect
+    const currentZoom = map.getZoom();
+    const targetZoom = 14;
+    let arcZoom = targetZoom;
+
+    if (dist > 50000) {
+      // Calculate an intermediate zoom level based on distance
+      const distKm = dist / 1000;
+      arcZoom = Math.max(5, Math.min(10, 14 - Math.log2(distKm / 10)));
+    } else if (dist > 10000) {
+      arcZoom = Math.max(8, currentZoom - 2);
+    }
+
+    setIsFlying(true);
+    setFlyDuration(duration);
+
+    // Remove any previous moveend listener
+    map.off('moveend');
+
+    if (dist > 50000 && arcZoom < currentZoom - 1) {
+      // Two-phase flight: zoom out → fly → zoom in
+      const phase1Duration = duration * 0.3;
+      const phase2Duration = duration * 0.7;
+
+      // Phase 1: Zoom out
+      map.flyTo(currentCenter, arcZoom, {
+        duration: phase1Duration,
+        easeLinearity: 0.1,
+        noMoveStart: true,
+      });
+
+      setTimeout(() => {
+        if (!mapRef.current) return;
+        // Phase 2: Fly to target with zoom in
+        map.flyTo([lat, lng], targetZoom, {
+          duration: phase2Duration,
+          easeLinearity: 0.05,
+          noMoveStart: true,
+        });
+
+        // Completion handler
+        const onMoveEnd = () => {
+          setIsFlying(false);
+          if (shouldHighlight) highlightMarker(lat, lng);
+          map.off('moveend', onMoveEnd);
+        };
+        map.on('moveend', onMoveEnd);
+      }, phase1Duration * 1000);
+    } else {
+      // Single-phase flight for shorter distances
+      map.flyTo([lat, lng], targetZoom, {
+        duration,
+        easeLinearity: dist > 10000 ? 0.05 : 0.1,
+        noMoveStart: true,
+      });
+
+      const onMoveEnd = () => {
+        setIsFlying(false);
+        if (shouldHighlight) highlightMarker(lat, lng);
+        map.off('moveend', onMoveEnd);
+      };
+      map.on('moveend', onMoveEnd);
+    }
+  }, [highlightMarker]);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -246,6 +338,7 @@ export const MapPage: React.FC<MapPageProps> = ({ user, onLoginRequest }) => {
       // Layers
       markerLayerRef.current = L.layerGroup().addTo(map);
       userLocLayerRef.current = L.layerGroup().addTo(map);
+      highlightLayerRef.current = L.layerGroup().addTo(map);
 
       // Ensure correct initial sizing (helps when the map mounts inside dynamic layouts)
       setTimeout(() => {
@@ -388,16 +481,19 @@ export const MapPage: React.FC<MapPageProps> = ({ user, onLoginRequest }) => {
 
     markerLayerRef.current.clearLayers();
 
-    markers.forEach(marker => {
-      // Create Custom DivIcon
+    markers.forEach((marker, index) => {
+      // Stagger delay for appear animation
+      const staggerDelay = Math.min(index * 30, 500); // max 500ms total stagger
+
+      // Create Custom DivIcon with appear animation
       const iconHtml = `
-        <div style="position: relative; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
+        <div class="marker-interactive" style="position: relative; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; animation: marker-appear 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) ${staggerDelay}ms both;">
            ${marker.severity >= 4 ? `<div style="position: absolute; inset: 0; background-color: ${SEVERITY_COLORS[marker.severity]}; border-radius: 50%; opacity: 0.4; animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>` : ''}
-           <div style="background-color: ${SEVERITY_COLORS[marker.severity]}; width: 28px; height: 28px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); border: 2px solid white; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); display: flex; align-items: center; justify-content: center; transition: transform 0.2s;">
-              <div style="transform: rotate(45deg); color: white; display: flex;">
-                 ${POLLUTION_TYPES[marker.type].icon}
-              </div>
-           </div>
+           <div class="marker-pin" style="background-color: ${SEVERITY_COLORS[marker.severity]}; width: 28px; height: 28px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); border: 2px solid white; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); display: flex; align-items: center; justify-content: center;">
+               <div style="transform: rotate(45deg); color: white; display: flex;">
+                  ${POLLUTION_TYPES[marker.type].icon}
+               </div>
+            </div>
         </div>
       `;
 
@@ -508,8 +604,8 @@ export const MapPage: React.FC<MapPageProps> = ({ user, onLoginRequest }) => {
     }
   };
 
-  const handleNavigateMarker = (direction: 'next' | 'prev') => {
-    if (markers.length === 0) return;
+  const handleNavigateMarker = useCallback((direction: 'next' | 'prev') => {
+    if (markers.length === 0 || isFlying) return;
 
     let nextIndex = 0;
     if (selectedMarker) {
@@ -529,7 +625,27 @@ export const MapPage: React.FC<MapPageProps> = ({ user, onLoginRequest }) => {
     const targetMarker = markers[nextIndex];
     setSelectedMarker(targetMarker);
     smoothFlyTo(targetMarker.lat, targetMarker.lng);
-  };
+  }, [markers, selectedMarker, isFlying, smoothFlyTo]);
+
+  // --- Keyboard Navigation ---
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't capture when user is typing in an input
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (addingMode) return;
+
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        handleNavigateMarker('next');
+      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        handleNavigateMarker('prev');
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleNavigateMarker, addingMode]);
 
   return (
     <div className="relative w-full h-[calc(100vh-64px)] bg-slate-100 overflow-hidden select-none">
@@ -575,21 +691,40 @@ export const MapPage: React.FC<MapPageProps> = ({ user, onLoginRequest }) => {
 
       {/* --- UI Controls --- */}
       <>
-        {/* Marker Navigation Controls - MOVED TO CENTER */}
-        <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-[400] flex flex-col gap-2">
-          <div className="bg-white/90 backdrop-blur rounded-full shadow-xl p-1.5 flex items-center gap-1 border border-slate-200">
+        {/* Marker Navigation Controls - Enhanced */}
+        <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-[400] flex flex-col items-center gap-1">
+          {/* Flying indicator bar */}
+          {isFlying && (
+            <div className="w-32 h-1 bg-slate-200 rounded-full overflow-hidden mb-1">
+              <div
+                className="h-full bg-emerald-500 rounded-full fly-indicator-bar"
+                style={{ '--fly-duration': `${flyDuration}s` } as React.CSSProperties}
+              />
+            </div>
+          )}
+          <div className={`bg-white/90 backdrop-blur rounded-full shadow-xl p-1.5 flex items-center gap-1 border border-slate-200 transition-opacity duration-200 ${isFlying ? 'opacity-70' : 'opacity-100'}`}>
             <button
               onClick={() => handleNavigateMarker('prev')}
-              className="p-2 rounded-full hover:bg-slate-100 text-slate-600 hover:text-emerald-600 transition-colors"
-              title="Điểm trước"
+              disabled={isFlying || markers.length === 0}
+              className="p-2 rounded-full hover:bg-slate-100 text-slate-600 hover:text-emerald-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              title="Điểm trước (←)"
             >
               <ChevronLeft size={22} />
             </button>
             <div className="w-px h-5 bg-slate-200"></div>
+            {/* Counter */}
+            <div className="px-2 text-xs font-medium text-slate-500 tabular-nums min-w-[3rem] text-center">
+              {selectedMarker
+                ? `${markers.findIndex(m => m.id === selectedMarker.id) + 1}/${markers.length}`
+                : `${markers.length}`
+              }
+            </div>
+            <div className="w-px h-5 bg-slate-200"></div>
             <button
               onClick={() => handleNavigateMarker('next')}
-              className="p-2 rounded-full hover:bg-slate-100 text-slate-600 hover:text-emerald-600 transition-colors"
-              title="Điểm tiếp theo"
+              disabled={isFlying || markers.length === 0}
+              className="p-2 rounded-full hover:bg-slate-100 text-slate-600 hover:text-emerald-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              title="Điểm tiếp theo (→)"
             >
               <ChevronRight size={22} />
             </button>
