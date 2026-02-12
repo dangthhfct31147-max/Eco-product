@@ -13,7 +13,8 @@ import {
   Navigation,
   Layers,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Search
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getApiUrl } from '@/utils/api';
@@ -108,6 +109,61 @@ export const MapPage: React.FC<MapPageProps> = ({ user, onLoginRequest }) => {
     description: '',
     is_anonymous: false
   });
+
+  // Search State
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showResults, setShowResults] = useState(false);
+
+  // Real-time Polling
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetch(getApiUrl('pollution'))
+        .then(r => r.json())
+        .then(data => {
+          if (Array.isArray(data?.markers)) {
+            setMarkers(prev => {
+              // Simple JSON stringify comparison to avoid flicker
+              if (JSON.stringify(prev) === JSON.stringify(data.markers)) return prev;
+              return data.markers;
+            });
+          }
+        })
+        .catch(console.error);
+    }, 15000); // 15 seconds
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchQuery.trim()) return;
+
+    setIsSearching(true);
+    setShowResults(true);
+    try {
+      // Nominatim API (OpenStreetMap)
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&countrycodes=vn&limit=5`);
+      const data = await res.json();
+      setSearchResults(data);
+    } catch (err) {
+      console.error("Search failed", err);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const handleSelectLocation = (result: any) => {
+    const { lat, lon } = result;
+    if (mapRef.current) {
+      mapRef.current.flyTo([parseFloat(lat), parseFloat(lon)], 16, { duration: 1.5 });
+    }
+    setShowResults(false);
+    setSearchResults([]);
+    setSearchQuery(result.display_name.split(',')[0]);
+  };
+
 
   // Load markers from backend
   useEffect(() => {
@@ -539,15 +595,66 @@ export const MapPage: React.FC<MapPageProps> = ({ user, onLoginRequest }) => {
           </button>
         </div>
 
-        {/* Title Card */}
-        <div className="absolute top-4 left-4 z-[400] hidden sm:flex flex-col gap-2 pointer-events-none">
-          <div className="bg-white/90 backdrop-blur-md p-4 rounded-xl shadow-lg border border-slate-200 w-64 pointer-events-auto">
+        {/* Search & Title Card Container */}
+        <div className="absolute top-4 left-4 z-[400] flex flex-col gap-3 w-full max-w-xs pointer-events-none">
+
+          {/* Search Box */}
+          <div className="pointer-events-auto relative">
+            <form onSubmit={handleSearch} className="bg-white/90 backdrop-blur-md rounded-full shadow-lg border border-slate-200 flex items-center p-1">
+              <input
+                type="text"
+                placeholder="Tìm địa điểm..."
+                className="bg-transparent border-none focus:ring-0 text-sm flex-1 px-4 py-2 text-slate-800 placeholder:text-slate-400"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onFocus={() => setShowResults(true)}
+              />
+              <button
+                type="submit"
+                className="p-2 bg-slate-100 hover:bg-emerald-100 text-slate-500 hover:text-emerald-600 rounded-full transition-colors"
+              >
+                {isSearching ? <Loader2 size={18} className="animate-spin" /> : <Search size={18} />}
+              </button>
+            </form>
+
+            {/* Search Results Dropdown */}
+            <AnimatePresence>
+              {showResults && searchResults.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="absolute top-full left-0 w-full mt-2 bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden max-h-60 overflow-y-auto"
+                >
+                  {searchResults.map((result, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => handleSelectLocation(result)}
+                      className="w-full text-left px-4 py-3 hover:bg-slate-50 border-b border-slate-50 last:border-none text-sm text-slate-700 hover:text-emerald-600 transition-colors flex items-start gap-2"
+                    >
+                      <MapPin size={16} className="mt-0.5 shrink-0 text-slate-400" />
+                      <span className="line-clamp-2">{result.display_name}</span>
+                    </button>
+                  ))}
+                  <div className="bg-slate-50 px-3 py-1 text-[10px] text-slate-400 text-right">
+                    Powered by OpenStreetMap
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          {/* Legend/Stats */}
+          <div className="bg-white/90 backdrop-blur-md p-4 rounded-xl shadow-lg border border-slate-200 pointer-events-auto hidden sm:block">
             <h2 className="font-bold text-slate-900 flex items-center gap-2">
               <AlertTriangle size={18} className="text-red-500" />
               Bản đồ ô nhiễm
             </h2>
             <div className="mt-4 space-y-2">
-              <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Mức độ</div>
+              <div className="flex justify-between items-center">
+                <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Mức độ</div>
+                <div className="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-medium">Live</div>
+              </div>
               <div className="flex h-2 rounded-full overflow-hidden">
                 <div className="flex-1 bg-emerald-500" />
                 <div className="flex-1 bg-lime-500" />
