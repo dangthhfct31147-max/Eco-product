@@ -33,9 +33,11 @@ interface PollutionMarker {
   type: PollutionType;
   severity: Severity;
   description: string;
-  created_at: string;
+  createdAt: string; // Fixed: Matches Prisma default
   is_anonymous: boolean;
 }
+
+
 
 const POLLUTION_TYPES: Record<PollutionType, { label: string, icon: string, color: string }> = {
   WASTE: {
@@ -136,6 +138,26 @@ export const MapPage: React.FC<MapPageProps> = ({ user, onLoginRequest }) => {
     return () => clearInterval(interval);
   }, []);
 
+  const smoothFlyTo = (lat: number, lng: number) => {
+    if (!mapRef.current) return;
+    const map = mapRef.current;
+
+    // Calculate distance to adjust duration dynamically
+    const currentCenter = map.getCenter();
+    const dist = currentCenter.distanceTo([lat, lng]);
+
+    // Closer = faster, Farther = slower (but capped)
+    // < 1km: 1s, < 10km: 1.5s, > 10km: 2s
+    let duration = 1.5;
+    if (dist < 1000) duration = 0.8;
+    else if (dist > 10000) duration = 2.2;
+
+    map.flyTo([lat, lng], 14, {
+      duration,
+      easeLinearity: 0.25,
+    });
+  };
+
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!searchQuery.trim()) return;
@@ -157,7 +179,7 @@ export const MapPage: React.FC<MapPageProps> = ({ user, onLoginRequest }) => {
   const handleSelectLocation = (result: any) => {
     const { lat, lon } = result;
     if (mapRef.current) {
-      mapRef.current.flyTo([parseFloat(lat), parseFloat(lon)], 16, { duration: 1.5 });
+      smoothFlyTo(parseFloat(lat), parseFloat(lon));
     }
     setShowResults(false);
     setSearchResults([]);
@@ -318,13 +340,13 @@ export const MapPage: React.FC<MapPageProps> = ({ user, onLoginRequest }) => {
           // 3. Smart Focus Decision
           if (nearest && minDist < 50000) {
             // Fly to marker
-            map.flyTo([nearest.lat, nearest.lng], 14, { duration: 2 });
+            smoothFlyTo(nearest.lat, nearest.lng);
             setTimeout(() => {
               if (mapRef.current) setSelectedMarker(nearest);
             }, 2000);
           } else {
             // Fly to user
-            map.flyTo(userLatLng, 13, { duration: 2 });
+            smoothFlyTo(userLatLng.lat, userLatLng.lng);
           }
 
           setIsLocating(false);
@@ -390,7 +412,7 @@ export const MapPage: React.FC<MapPageProps> = ({ user, onLoginRequest }) => {
       m.on('click', (e) => {
         L.DomEvent.stopPropagation(e);
         setSelectedMarker(marker);
-        mapRef.current?.flyTo([marker.lat, marker.lng], 14, { duration: 1.5 });
+        smoothFlyTo(marker.lat, marker.lng);
       });
 
       m.addTo(markerLayerRef.current!);
@@ -479,7 +501,7 @@ export const MapPage: React.FC<MapPageProps> = ({ user, onLoginRequest }) => {
       navigator.geolocation.getCurrentPosition((pos) => {
         if (!mapRef.current) return;
         const { latitude, longitude } = pos.coords;
-        mapRef.current.flyTo([latitude, longitude], 14, { duration: 1.5 });
+        smoothFlyTo(latitude, longitude);
         setIsLocating(false);
       }, () => setIsLocating(false));
     }
@@ -505,7 +527,7 @@ export const MapPage: React.FC<MapPageProps> = ({ user, onLoginRequest }) => {
 
     const targetMarker = markers[nextIndex];
     setSelectedMarker(targetMarker);
-    mapRef.current?.flyTo([targetMarker.lat, targetMarker.lng], 14, { duration: 1.5 });
+    smoothFlyTo(targetMarker.lat, targetMarker.lng);
   };
 
   return (
@@ -815,7 +837,7 @@ export const MapPage: React.FC<MapPageProps> = ({ user, onLoginRequest }) => {
                 <div>
                   <h3 className="font-bold text-slate-900">{POLLUTION_TYPES[selectedMarker.type].label}</h3>
                   <span className="text-xs text-slate-500">
-                    {new Date(selectedMarker.created_at).toLocaleDateString('vi-VN')}
+                    {selectedMarker.createdAt ? new Date(selectedMarker.createdAt).toLocaleDateString('vi-VN') : 'N/A'}
                   </span>
                 </div>
               </div>

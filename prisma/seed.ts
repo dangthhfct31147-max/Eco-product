@@ -168,6 +168,65 @@ async function main() {
     }
 
     console.log(`\n✅ Đã thêm ${SAMPLE_PRODUCTS.length} sản phẩm mẫu!`);
+
+    // --- SEED POLLUTION REPORTS ---
+    console.log('🏭 Bắt đầu seed dữ liệu ô nhiễm...');
+
+    // Clear old reports
+    await prisma.pollutionReport.deleteMany({});
+
+    // 1. Define base locations (City centers)
+    const LOCATIONS = [
+        { name: 'Hà Nội', lat: 21.0285, lng: 105.8542 },
+        { name: 'Đà Nẵng', lat: 16.0544, lng: 108.2022 },
+        { name: 'Hồ Chí Minh', lat: 10.8231, lng: 106.6297 },
+        { name: 'Cần Thơ', lat: 10.0452, lng: 105.7469 },
+        { name: 'Hải Phòng', lat: 20.8449, lng: 106.6881 },
+    ];
+
+    const POLLUTION_TYPES = ['WASTE', 'WATER', 'AIR', 'OTHER'];
+    const DESCRIPTIONS = [
+        'Rác thải sinh hoạt ùn ứ lâu ngày bốc mùi hôi thối.',
+        'Cống nước thải đen ngòm, sủi bọt trắng xóa chảy ra sông.',
+        'Khói bụi từ công trình xây dựng gây bụi mù mịt cả khu phố.',
+        'Đốt rơm rạ gây khói mù mịt, khó thở cho người đi đường.',
+        'Kênh rạch bị tắc nghẽn do rác thải nhựa.',
+        'Mùi hóa chất nồng nặc từ khu công nghiệp gần đó.',
+        'Bãi rác tự phát mọc lên ngay cạnh khu dân cư.',
+        'Xả thải trộm ra môi trường vào ban đêm.',
+        'Tiếng ồn quá lớn từ nhà máy hoạt động quá giờ quy định.',
+        'Khói đen xả ra từ ống khói nhà máy.',
+    ];
+
+    const REPORTS_PER_LOCATION = 10;
+    let reportCount = 0;
+
+    for (const loc of LOCATIONS) {
+        for (let i = 0; i < REPORTS_PER_LOCATION; i++) {
+            // Random offset spread ~5-10km
+            const latOffset = (Math.random() - 0.5) * 0.1;
+            const lngOffset = (Math.random() - 0.5) * 0.1;
+
+            const randomType = POLLUTION_TYPES[Math.floor(Math.random() * POLLUTION_TYPES.length)];
+            const randomDesc = DESCRIPTIONS[Math.floor(Math.random() * DESCRIPTIONS.length)];
+            const randomSeverity = Math.floor(Math.random() * 5) + 1; // 1-5
+
+            await prisma.pollutionReport.create({
+                data: {
+                    ownerId: demoSeller.id,
+                    lat: loc.lat + latOffset,
+                    lng: loc.lng + lngOffset,
+                    type: randomType,
+                    severity: randomSeverity,
+                    description: `${randomDesc} (Tại: ${loc.name})`,
+                    isAnonymous: Math.random() > 0.5,
+                }
+            });
+            reportCount++;
+        }
+    }
+
+    console.log(`✅ Đã thêm ${reportCount} báo cáo ô nhiễm mẫu!`);
     console.log('🌿 Seed hoàn tất!');
 }
 
