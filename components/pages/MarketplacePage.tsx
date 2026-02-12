@@ -116,7 +116,7 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({ user, onLoginR
       <motion.div
         className="bg-white border-b border-slate-200 sticky top-16 z-30"
         initial={{ y: 0 }}
-        animate={{ y: showHeader ? 0 : -80 }}
+        animate={{ y: showHeader ? 0 : '-100%' }}
         transition={{ duration: 0.3 }}
       >
         <div className="container mx-auto px-4 py-4 space-y-4">
